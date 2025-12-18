@@ -1,0 +1,73 @@
+CXX = g++
+CXXFLAGS = -std=c++17 -pthread -Wall -fPIC -Iinclude
+
+SRC_DIR = src
+INC_DIR = include
+BUILD_DIR = build
+
+QT_CFLAGS = $(shell pkg-config --cflags Qt5Widgets Qt5Gui Qt5Core 2>/dev/null)
+QT_LIBS = $(shell pkg-config --libs Qt5Widgets Qt5Gui Qt5Core 2>/dev/null)
+
+ifeq ($(QT_CFLAGS),)
+    QT_INC = -I/usr/include/x86_64-linux-gnu/qt5 \
+             -I/usr/include/x86_64-linux-gnu/qt5/QtWidgets \
+             -I/usr/include/x86_64-linux-gnu/qt5/QtGui \
+             -I/usr/include/x86_64-linux-gnu/qt5/QtCore
+    QT_LIBS = -lQt5Widgets -lQt5Gui -lQt5Core
+else
+    QT_INC = $(QT_CFLAGS)
+endif
+
+TARGET = bin/linux_gui_client.exe
+
+SOURCES = $(SRC_DIR)/socket.cpp \
+          $(SRC_DIR)/thread.cpp \
+          $(SRC_DIR)/mutex.cpp \
+          $(SRC_DIR)/platform_utils.cpp \
+          $(SRC_DIR)/network_client.cpp \
+          $(SRC_DIR)/mainwindow.cpp \
+          $(SRC_DIR)/gui_main.cpp
+
+OBJECTS = $(SOURCES:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
+
+MOC_HEADERS = $(INC_DIR)/mainwindow.h $(INC_DIR)/network_client.h
+MOC_SOURCES = $(MOC_HEADERS:$(INC_DIR)/%.h=$(BUILD_DIR)/%_moc.cpp)
+MOC_OBJECTS = $(MOC_SOURCES:$(BUILD_DIR)/%.cpp=$(BUILD_DIR)/%.o)
+
+MOC := $(shell which moc 2>/dev/null || which moc-qt5 2>/dev/null)
+ifeq ($(MOC),)
+    MOC = moc
+endif
+
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+    LDFLAGS = -pthread $(QT_LIBS)
+endif
+ifeq ($(UNAME_S),Darwin)
+    LDFLAGS = -pthread $(QT_LIBS)
+endif
+ifeq ($(OS),Windows_NT)
+    LDFLAGS = -lws2_32 $(QT_LIBS)
+endif
+
+all: $(BUILD_DIR) $(TARGET)
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(TARGET): $(OBJECTS) $(MOC_OBJECTS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJECTS) $(MOC_OBJECTS) $(LDFLAGS)
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+	$(CXX) $(CXXFLAGS) $(QT_INC) -c $< -o $@
+
+$(BUILD_DIR)/%_moc.cpp: $(INC_DIR)/%.h
+	$(MOC) $< -o $@
+
+$(BUILD_DIR)/%_moc.o: $(BUILD_DIR)/%_moc.cpp
+	$(CXX) $(CXXFLAGS) $(QT_INC) -c $< -o $@
+
+clean:
+	rm -rf $(BUILD_DIR) $(TARGET)
+
+.PHONY: all clean

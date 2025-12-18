@@ -1,0 +1,65 @@
+# Windows Qt Makefile
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -fPIC -Iinclude
+
+# IMPORTANT: Update these paths to match your Qt installation
+QT_DIR = C:/Qt/5.15.2/mingw81_64
+QT_INC = -I$(QT_DIR)/include \
+         -I$(QT_DIR)/include/QtWidgets \
+         -I$(QT_DIR)/include/QtGui \
+         -I$(QT_DIR)/include/QtCore
+
+QT_LIBS = -L$(QT_DIR)/lib \
+          -lQt5Widgets -lQt5Gui -lQt5Core
+
+# Directories
+SRC_DIR = src
+INC_DIR = include
+BUILD_DIR = build
+
+# MOC location
+MOC = $(QT_DIR)/bin/moc.exe
+
+# Output
+TARGET = qt_fileclient.exe
+
+# Source files
+SOURCES = $(SRC_DIR)/socket.cpp \
+          $(SRC_DIR)/thread.cpp \
+          $(SRC_DIR)/mutex.cpp \
+          $(SRC_DIR)/platform_utils.cpp \
+          $(SRC_DIR)/network_client.cpp \
+          $(SRC_DIR)/mainwindow.cpp \
+          $(SRC_DIR)/gui_main.cpp
+
+OBJECTS = $(SOURCES:$(SRC_DIR)/%.cpp=$(BUILD_DIR)/%.o)
+
+# MOC files
+MOC_HEADERS = $(INC_DIR)/mainwindow.h $(INC_DIR)/network_client.h
+MOC_SOURCES = $(MOC_HEADERS:$(INC_DIR)/%.h=$(BUILD_DIR)/%_moc.cpp)
+MOC_OBJECTS = $(MOC_SOURCES:$(BUILD_DIR)/%.cpp=$(BUILD_DIR)/%.o)
+
+LDFLAGS = -lws2_32 $(QT_LIBS)
+
+all: $(BUILD_DIR) $(TARGET)
+
+$(BUILD_DIR):
+	if not exist $(BUILD_DIR) mkdir $(BUILD_DIR)
+
+$(TARGET): $(OBJECTS) $(MOC_OBJECTS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJECTS) $(MOC_OBJECTS) $(LDFLAGS)
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+	$(CXX) $(CXXFLAGS) $(QT_INC) -c $< -o $@
+
+$(BUILD_DIR)/%_moc.cpp: $(INC_DIR)/%.h
+	$(MOC) $< -o $@
+
+$(BUILD_DIR)/%_moc.o: $(BUILD_DIR)/%_moc.cpp
+	$(CXX) $(CXXFLAGS) $(QT_INC) -c $< -o $@
+
+clean:
+	if exist $(BUILD_DIR) rmdir /s /q $(BUILD_DIR)
+	if exist $(TARGET) del $(TARGET)
+
+.PHONY: all clean
